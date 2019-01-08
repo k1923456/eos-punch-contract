@@ -1,0 +1,51 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT Mon Jan  7 19:04:22 2019",
+    "version": "eosio::abi/1.1",
+    "structs": [
+        {
+            "name": "hello",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "punch",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                },
+                {
+                    "name": "punches",
+                    "type": "uint64[]"
+                },
+                {
+                    "name": "bet",
+                    "type": "asset"
+                }
+            ]
+        }
+    ],
+    "types": [],
+    "actions": [
+        {
+            "name": "hello",
+            "type": "hello",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "punch",
+            "type": "punch",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "abi_extensions": []
+}
