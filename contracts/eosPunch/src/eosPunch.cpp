@@ -4,42 +4,45 @@ using namespace eosio;
 
 class eosPunch : public contract
 {
+
 public:
+
     using contract::contract;
     const uint64_t MAX_PUNCHES = 5;
     const uint64_t PUNCH_TYPE = 3; // 1; paper, 2: scissors, 3: stone
-    const double DRAW = 0.9; // 5% for banker, 5% for jackpot
+    const double DRAW = 0.9;       // 5% for banker, 5% for jackpot
     const double WIN = 2.0;
     const double LOSE = -1.0;
     // const double MIN_BET = 0.1;
 
     [[eosio::action]]
-    void hello( name user )
-    {
-        print( "User ", user, "Punched something.");
-    }
-
-    [[eosio::action]]
-    void punch( name user, std::vector<uint64_t>& punches, asset bet )
+    void punch( name user, asset bet, std::vector<uint64_t> punches )
     {
         int i = 0;
+        int64_t playerWin = 0;  // Player's win value
+
+        uint64_t bankerWin = 0;  // Banker's win value
+        uint64_t jackpotWin = 0; // Jackpot's win value
         uint64_t playerPunch = 0;
         uint64_t bankerPunch = 0;
+
         bool jackpot = true;
         std::vector<double> punchResult;
 
-        print("User ", user);
-        print(" punched ");
+        // Print parameters
+        print("User ", user, " punched ");
         for (i = 0; i < punches.size(); i++)
         {
             eosio_assert( punches[i] <= PUNCH_TYPE, "Invalid punch type!" );
             print(punches[i]);
             print(", ");
         }
-        print("with bet ", bet.amount / 10000);
-        print(" EOS, Banker: ");
+        print("with bet ", bet.amount, " ", bet.symbol, ", Banker: ");
 
+        // Pre-check
         eosio_assert( punches.size() == MAX_PUNCHES, "Numbers of punches doesn't match!" );
+        eosio_assert( bet.amount >= -eosio::asset::max_amount, "input bet underflow" );
+        eosio_assert( bet.amount <= eosio::asset::max_amount,  "input bet overflow" );
 
         for (i = 0; i < punches.size(); i++)
         {
@@ -49,103 +52,88 @@ public:
             // paper v.s stone or stone v.s paper
             if (playerPunch != 2 && (playerPunch + bankerPunch) == 4)
             {
-                if (playerPunch == 1)
+                if (playerPunch == 1) // win
                 {
-                    print("[", bankerPunch);
-                    print(":Win(1->3)], ");
-                    punchResult.push_back(bet.amount * WIN);
+                    print("[", bankerPunch, ":Win(1->3)], ");
+                    playerWin = bet.amount * WIN;
                 }
-                else
+                else // lose
                 {
-                    print("[", bankerPunch);
-                    print(":Lose(3->1)], ");
+                    print("[", bankerPunch, ":Lose(3->1)], ");
+                    playerWin = bet.amount * LOSE;
                     jackpot = false;
-                    punchResult.push_back(bet.amount * LOSE);
                 }
                 continue;
             }
 
             if (playerPunch == bankerPunch) // draw
             {
-                print("[", bankerPunch);
-                print(":Draw], ");
+                print("[", bankerPunch, ":Draw], ");
+                playerWin = bet.amount * DRAW;
                 jackpot = false;
-                punchResult.push_back(bet.amount * DRAW);
             }
             else if (playerPunch > bankerPunch) // win
             {
-                print("[", bankerPunch);
-                print(":Win], ");
-                punchResult.push_back(bet.amount * WIN);
+                print("[", bankerPunch, ":Win], ");
+                playerWin = bet.amount * WIN;
             }
             else //lose
             {
-                print("[", bankerPunch);
-                print(":Lose], ");
+                print("[", bankerPunch, ":Lose], ");
+                playerWin = bet.amount * LOSE;
                 jackpot = false;
-                punchResult.push_back(bet.amount * LOSE);
             }
         }
 
-        users players(_self, _code.value);
-        auto iterator = players.find(user.value);
-        if (iterator == players.end())
-        {
-            players.emplace(user, [&](auto & row)
-            {
-                struct round tmpRound =
-                {
-                    punchResult,
-                    time_point_sec(now())
-                };
-                std::vector<struct round> punchHistory;
-
-                row.userName = user;
-                row.punchHistory = punchHistory;
-                row.punchHistory.push_back(tmpRound);
-
-            });
-        }
-        else
-        {
-            players.modify(iterator, user, [&](auto & row)
-            {
-                struct round tmpRound =
-                {
-                    punchResult,
-                    time_point_sec(now())
-                };
-
-                row.userName = user;
-                row.punchHistory.push_back(tmpRound);
-            });
-        }
+        punchResult.push_back(bet.amount * WIN);
+        // updateUser();
+        // payUser();
 
     }
-    // void transferAction( name    from,
-    //                      name    to,
-    //                      asset   quantity,
-    //                      std::string  memo )
-    // {
-    //     print("Require receipant works!!!");
 
-    // eosio_assert(_code == "eosio.token"_n, "I reject your non-eosio.token deposit");
-    // auto data = unpack_action_data<token::transfer>();
-    // if (data.from == _self || data.to != _self)
-    //     return;
-    // eosio_assert(data.quantity.symbol == string_to_symbol(4, "EOS"),
-    //              "I think you're looking for another contract");
-    // eosio_assert(data.quantity.is_valid(), "Are you trying to corrupt me?");
-    // eosio_assert(data.quantity.amount > 0, "When pigs fly");
+    void transferAction( name    from,
+                         name    to,
+                         asset   quantity,
+                         std::string  memo )
+    {
+        print("Require receipant works!!!Memo = ");
+        printf("%s", memo.c_str());
+        print("!!!");
 
-    //     print("And passed the assertion!!!!");
-    // }
+        eosio_assert(_code == "eosio.token"_n, "I reject your non-eosio.token deposit");
+        // auto data = unpack_action_data<token::transfer>();
+        // if (data.from == _self || data.to != _self)
+        //     return;
+        // eosio_assert(data.quantity.symbol == string_to_symbol(4, "EOS"),
+        //              "I think you're looking for another contract");
+        // eosio_assert(data.quantity.is_valid(), "Are you trying to corrupt me?");
+        // eosio_assert(data.quantity.amount > 0, "When pigs fly");
+
+        std::vector<uint64_t> punches;
+
+        int i = 0;
+        uint64_t tmp = 0;
+        for (i = 0; i < memo.size(); i++) // When i == memo.size(), i is null character
+        {
+            tmp = getInt(memo[i]);
+            if ( tmp >= 1 && tmp <= 3 )
+            {
+                punches.push_back(tmp);
+            }
+            else
+            {
+                print("NNN");
+            }
+        }
+
+        this->punch(from, quantity, punches);
+    }
 
 private:
 
     struct round
     {
-        std::vector<double> punchResult;// positive: player win or draw; negative: player lose
+        std::vector<double> punchResult; // positive: player win or draw; negative: player lose
         time_point_sec timestamp;
     };
 
@@ -159,38 +147,77 @@ private:
         }
     };
 
-    typedef eosio::multi_index< "users"_n, user > users;
+    // typedef eosio::multi_index< "users"_n, user > users;
+
+    // void updateUser()
+    // {
+    //     users players(_self, _code.value);
+    //     auto iterator = players.find(user.value);
+    //     if (iterator == players.end())
+    //     {
+    //         players.emplace(user, [&](auto & row)
+    //         {
+    //             struct round tmpRound =
+    //             {
+    //                 punchResult,
+    //                 time_point_sec(now())
+    //             };
+    //             std::vector<struct round> punchHistory;
+
+    //             row.userName = user;
+    //             row.punchHistory = punchHistory;
+    //             row.punchHistory.push_back(tmpRound);
+
+    //         });
+    //     }
+    //     else
+    //     {
+    //         players.modify(iterator, user, [&](auto & row)
+    //         {
+    //             struct round tmpRound =
+    //             {
+    //                 punchResult,
+    //                 time_point_sec(now())
+    //             };
+
+    //             row.userName = user;
+    //             row.punchHistory.push_back(tmpRound);
+    //         });
+    //     }
+    // }
+
+    // void payUser() {}
 
     uint64_t random()
     {
         uint64_t seed = (now() % PUNCH_TYPE) + 1;
         return seed;
     }
+    uint64_t getInt(char c)
+    {
+        uint64_t res = (uint64_t)(c - '0');
+        print("{c=", c);
+        print(",res=", res);
+        print("}");
+
+        return res;
+    }
 };
 
-EOSIO_DISPATCH( eosPunch, (hello)(punch))
-// extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action)
-// {
-//     switch (action)
-//     {
-//     case N(transfer):
-//         return transferAction(receiver, code);
-//     }
-// }
 extern "C"
 {
     [[noreturn]] void apply(uint64_t receiver, uint64_t code, uint64_t action)
     {
         if ((code == "eosio.token"_n.value) && (action == "transfer"_n.value))
         {
-            eosio::execute_action(eosio::name(receiver), eosio::name(code), &eosPunch::transfer);
+            eosio::execute_action(eosio::name(receiver), eosio::name(code), &eosPunch::transferAction);
         }
 
         if (code == receiver)
         {
             switch (action)
             {
-                EOSIO_DISPATCH_HELPER(eosPunch, (hello)(punch))
+                EOSIO_DISPATCH_HELPER(eosPunch, (punch))
             }
         }
         eosio_exit(0);
