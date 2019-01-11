@@ -15,34 +15,35 @@ public:
 
     const std::string BANKER_MSG = "banker_pay";
     const uint64_t MAX_PUNCHES = 5;
-    const uint64_t PUNCH_TYPE = 3; 
-    const double DRAW = 0.9;       
+    const uint64_t PUNCH_TYPE = 3;
+    const double DRAW = 0.9;
     const double WIN = 2.0;
     const double LOSE = -1.0;
     const int64_t WIN_STATE = 1;
     const int64_t LOSE_STATE = -1;
     const int64_t DRAW_STATE = 0;
     const name GAME1 = "version1"_n;
-    
+
 
     [[eosio::action]]
     void punch( name user, asset bet, std::vector<uint64_t> punches )
     {
         int i = 0;
-        int64_t playerValue = 0;  
+        int64_t playerValue = 0;
         int64_t state = DRAW_STATE;
 
-        uint64_t bankerValue = 0;  
-        uint64_t jackpotValue = 0; 
+        uint64_t bankerValue = 0;
+        uint64_t jackpotValue = 0;
         uint64_t playerPunch = 0;
         uint64_t bankerPunch = 0;
 
         bool jackpot = true;
         std::vector<struct punchRecord> round;
+        print("ROUND_SIZE_INIT=", round.size());
 
 #ifndef DEBUG
-        
-        print("User ", user, " punched SIZE ", punches.size());
+
+        print("User ", user, " punched SIZE ", punches.size(), ", ");
         for (i = 0; i < punches.size(); i++)
         {
             print(punches[i]);
@@ -50,7 +51,7 @@ public:
         }
         print("with bet ", bet.amount, " ", bet.symbol, ", Banker: ");
 
-        
+
         eosio_assert( bet.amount >= -eosio::asset::max_amount, "input bet underflow" );
         eosio_assert( bet.amount <= eosio::asset::max_amount,  "input bet overflow" );
         for (i = 0; i < punches.size(); i++)
@@ -62,49 +63,55 @@ public:
         {
             playerPunch = punches[i];
             bankerPunch = random();
+            print("[rsize::", round.size(), "]");
 
-            
             if (playerPunch != 2 && (playerPunch + bankerPunch) == 4)
             {
-                if (playerPunch == 1) 
+                if (playerPunch == 1)
                 {
                     print("[", bankerPunch, ":Win(1->3)], ");
                     playerValue = bet.amount * WIN;
+                    print("playerValue=", playerValue);
                     state = WIN_STATE;
                 }
-                else 
+                else
                 {
                     print("[", bankerPunch, ":Lose(3->1)], ");
                     playerValue = bet.amount * LOSE;
+                    print("playerValue=", playerValue);
                     jackpot = false;
                     state = LOSE_STATE;
                 }
-                continue;
+            }
+            else
+            {
+                if (playerPunch == bankerPunch)
+                {
+                    print("[", bankerPunch, ":Draw], ");
+                    playerValue = bet.amount * DRAW;
+                    print("playerValue=", playerValue);
+                    jackpotValue = (bet.amount - playerValue) / 2;
+                    updateJackpot(GAME1, DRAW_STATE, jackpotValue);
+                    jackpot = false;
+                    state = DRAW_STATE;
+                }
+                else if (playerPunch > bankerPunch)
+                {
+                    print("[", bankerPunch, ":Win], ");
+                    playerValue = bet.amount * WIN;
+                    print("playerValue=", playerValue);
+                    state = WIN_STATE;
+                }
+                else //lose
+                {
+                    print("[", bankerPunch, ":Lose], ");
+                    playerValue = bet.amount * LOSE;
+                    print("playerValue=", playerValue);
+                    jackpot = false;
+                    state = LOSE_STATE;
+                }
             }
 
-            if (playerPunch == bankerPunch) 
-            {
-                print("[", bankerPunch, ":Draw], ");
-                playerValue = bet.amount * DRAW;
-                jackpotValue = (bet.amount - playerValue) / 2;
-                updateJackpot(GAME1, DRAW_STATE, jackpotValue);
-                jackpot = false;
-                state = DRAW_STATE;
-            }
-            else if (playerPunch > bankerPunch) 
-            {
-                print("[", bankerPunch, ":Win], ");
-                playerValue = bet.amount * WIN;
-                state = WIN_STATE;
-            }
-            else //lose
-            {
-                print("[", bankerPunch, ":Lose], ");
-                playerValue = bet.amount * LOSE;
-                jackpot = false;
-                state = LOSE_STATE;
-            }
-            
             struct punchRecord p =
             {
                 playerPunch,
@@ -118,7 +125,7 @@ public:
         updateUser(user, round);
         payUser(user, playerValue);
 
-        
+
         if (jackpot)
         {
             uint64_t bigValue = updateJackpot(GAME1, WIN_STATE, jackpotValue);
@@ -155,14 +162,14 @@ public:
         print("!!!");
 
         eosio_assert(_code == "eosio.token"_n, "I reject your non-eosio.token deposit");
-        
-        if (to == _self && !memo.empty() && memo.compare(BANKER_MSG) != 0) 
+
+        if (to == _self && !memo.empty() && memo.compare(BANKER_MSG) != 0)
         {
             int i = 0;
             uint64_t tmp = 0;
             std::vector<uint64_t> punches;
 
-            for (i = 0; i < memo.size(); i++) 
+            for (i = 0; i < memo.size(); i++)
             {
                 tmp = getInt(memo[i]);
                 if ( tmp >= 1 && tmp <= 3 )
@@ -178,7 +185,7 @@ public:
             eosio_assert( punches.size() == MAX_PUNCHES, "Numbers of punches doesn't match!" );
             this->punch(from, quantity, punches);
         }
-        else {} 
+        else {}
     }
 
 private:
@@ -187,8 +194,8 @@ private:
     {
         uint64_t playerPunch;
         uint64_t bankerPunch;
-        int64_t state; 
-        int64_t value; 
+        int64_t state;
+        int64_t value;
     };
 
     struct [[eosio::table]] user
