@@ -111,15 +111,30 @@ public:
                     state = LOSE_STATE;
                 }
             }
-
-            struct punchRecord p =
+            if (state == WIN_STATE)
             {
-                playerPunch,
-                bankerPunch,
-                state,
-                playerValue
-            };
-            round.push_back(p);
+                print("INININ_WIN_STATE");
+                struct punchRecord p =
+                {
+                    playerPunch,
+                    bankerPunch,
+                    state,
+                    playerValue - bet.amount
+                };
+                round.push_back(p);
+            }
+            else
+            {
+                struct punchRecord p =
+                {
+                    playerPunch,
+                    bankerPunch,
+                    state,
+                    playerValue
+                };
+                round.push_back(p);
+            }
+
         }
         print("{{ROUNDSIZE:", round.size(), "}}");
         updateUser(user, round);
@@ -248,17 +263,23 @@ private:
         }
     }
 
-    void payUser(name to, uint64_t amount)
+    void payUser(name to, int64_t amount)
     {
         transaction txn{};
         std::string memo = BANKER_MSG;
-
-        txn.actions.emplace_back(
-            eosio::permission_level(_self, "active"_n),
-            "eosio.token"_n,
-            "transfer"_n,
-            std::make_tuple(_self, to, asset(amount, symbol("EOS", 4)), memo))
-        .send();
+        if (amount < 0)
+        {
+            return;
+        }
+        else
+        {
+            txn.actions.emplace_back(
+                eosio::permission_level(_self, "active"_n),
+                "eosio.token"_n,
+                "transfer"_n,
+                std::make_tuple(_self, to, asset(amount, symbol("EOS", 4)), memo))
+            .send();
+        }
     }
 
     uint64_t updateJackpot(name game, int64_t jackpotState, uint64_t jackpotValue)
