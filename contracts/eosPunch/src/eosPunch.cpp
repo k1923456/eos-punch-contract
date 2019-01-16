@@ -3,7 +3,7 @@
 using namespace eosio;
 
 // #define DEBUG 1
-#define NOBET 1
+// #define NOBET 1
 
 class[[eosio::contract]] eosPunch : public eosio::contract
 {
