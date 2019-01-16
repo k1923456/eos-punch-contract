@@ -3,15 +3,15 @@
 using namespace eosio;
 
 // #define DEBUG 1
+#define NOBET 1
 
-class [[eosio::contract]] eosPunch : public eosio::contract
+class[[eosio::contract]] eosPunch : public eosio::contract
 {
 
-public:
-
+  public:
     using contract::contract;
 
-    eosPunch(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}
+    eosPunch(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
     const std::string BANKER_MSG = "banker_pay";
     const uint64_t MAX_PUNCHES = 5;
@@ -24,14 +24,12 @@ public:
     const int64_t DRAW_STATE = 0;
     const name GAME1 = "version1"_n;
 
-
-    [[eosio::action]]
-    void punch( name user, asset bet, std::vector<uint64_t> punches )
-    {
-        int i = 0;
+    [[eosio::action]] void punch(name user, asset bet, std::vector<uint64_t> punches) {
         int64_t playerValue = 0;
+        int64_t playerTotalValue = 0;
         int64_t state = DRAW_STATE;
 
+        uint64_t i = 0;
         uint64_t bankerValue = 0;
         uint64_t jackpotValue = 0;
         uint64_t playerPunch = 0;
@@ -51,12 +49,11 @@ public:
         }
         print("with bet ", bet.amount, " ", bet.symbol, ", Banker: ");
 
-
-        eosio_assert( bet.amount >= -eosio::asset::max_amount, "input bet underflow" );
-        eosio_assert( bet.amount <= eosio::asset::max_amount,  "input bet overflow" );
+        eosio_assert(bet.amount >= -eosio::asset::max_amount, "input bet underflow");
+        eosio_assert(bet.amount <= eosio::asset::max_amount, "input bet overflow");
         for (i = 0; i < punches.size(); i++)
         {
-            eosio_assert( punches[i] <= PUNCH_TYPE, "Invalid punch type!" );
+            eosio_assert(punches[i] <= PUNCH_TYPE, "Invalid punch type!");
         }
 
         for (i = 0; i < punches.size(); i++)
@@ -115,31 +112,42 @@ public:
             {
                 print("INININ_WIN_STATE");
                 struct punchRecord p =
-                {
-                    playerPunch,
-                    bankerPunch,
-                    state,
-                    playerValue - bet.amount
-                };
+                    {
+                        i + 1,
+                        playerPunch,
+                        bankerPunch,
+                        state,
+                        playerValue - bet.amount};
                 round.push_back(p);
+                playerTotalValue += playerValue;
+            }
+            else if (state == DRAW_STATE)
+            {
+                struct punchRecord p =
+                    {
+                        i + 1,
+                        playerPunch,
+                        bankerPunch,
+                        state,
+                        playerValue};
+                round.push_back(p);
+                playerTotalValue += playerValue;
             }
             else
             {
                 struct punchRecord p =
-                {
-                    playerPunch,
-                    bankerPunch,
-                    state,
-                    playerValue
-                };
+                    {
+                        i + 1,
+                        playerPunch,
+                        bankerPunch,
+                        state,
+                        playerValue};
                 round.push_back(p);
             }
-
         }
         print("{{ROUNDSIZE:", round.size(), "}}");
         updateUser(user, round);
-        payUser(user, playerValue);
-
+        payUser(user, playerTotalValue);
 
         if (jackpot)
         {
@@ -151,12 +159,11 @@ public:
         for (i = 0; i < 5; i++)
         {
             struct punchRecord p =
-            {
-                1,
-                1,
-                0,
-                bet.amount
-            };
+                {
+                    1,
+                    1,
+                    0,
+                    bet.amount};
             round.push_back(p);
         }
         print("round[0].playerPunch:", round[0].playerPunch, ",");
@@ -167,16 +174,23 @@ public:
 #endif
     }
 
-    void transferAction( name    from,
-                         name    to,
-                         asset   quantity,
-                         std::string  memo )
+    void
+    transferAction(name from,
+                   name to,
+                   asset quantity,
+                   std::string memo)
     {
+#ifndef NOBET
         print("Require receipant works!!!Memo = ");
         printf("%s", memo.c_str());
         print("!!!");
+        const symbol sym(symbol_code("EOS"), 4);
+        const auto my_balance = eosio::token::get_balance("eosio.token"_n, get_self(), sym.code());
+        print("QUANTITY_ASSET=", quantity.amount, "|||");
+        print("BANKER_BALANCE=", my_balance.amount, "||||||||||");
 
         eosio_assert(_code == "eosio.token"_n, "I reject your non-eosio.token deposit");
+        eosio_assert(quantity.amount <= my_balance.amount, "Banker has been brokenF");
 
         if (to == _self && !memo.empty() && memo.compare(BANKER_MSG) != 0)
         {
@@ -187,7 +201,7 @@ public:
             for (i = 0; i < memo.size(); i++)
             {
                 tmp = getInt(memo[i]);
-                if ( tmp >= 1 && tmp <= 3 )
+                if (tmp >= 1 && tmp <= 3)
                 {
                     punches.push_back(tmp);
                 }
@@ -197,16 +211,21 @@ public:
                 }
             }
 
-            eosio_assert( punches.size() == MAX_PUNCHES, "Numbers of punches doesn't match!" );
-            this->punch(from, quantity, punches);
+            eosio_assert(punches.size() == MAX_PUNCHES, "Numbers of punches doesn't match!");
+            this->punch(from, quantity / MAX_PUNCHES, punches);
         }
-        else {}
+        else
+        {
+        }
+#else
+
+#endif
     }
 
-private:
-
+  private:
     struct punchRecord
     {
+        uint64_t id;
         uint64_t playerPunch;
         uint64_t bankerPunch;
         int64_t state;
@@ -234,29 +253,26 @@ private:
         }
     };
 
-    typedef eosio::multi_index< "users"_n, user > userTable;
-    typedef eosio::multi_index< "states"_n, contractState > stateTable;
+    typedef eosio::multi_index<"users"_n, user> userTable;
+    typedef eosio::multi_index<"states"_n, contractState> stateTable;
 
     void updateUser(name user, std::vector<struct punchRecord> round)
     {
         userTable players(_self, _self.value);
         auto iterator = players.find(user.value);
-        time_point_sec timestamp = (time_point_sec) now();
+        time_point_sec timestamp = (time_point_sec)now();
 
         if (iterator == players.end())
         {
-            players.emplace(_self, [&](auto & row)
-            {
+            players.emplace(_self, [&](auto &row) {
                 row.userName = user;
                 row.round = round;
                 row.timestamp = timestamp;
-
             });
         }
         else
         {
-            players.modify(iterator, _self, [&](auto & row)
-            {
+            players.modify(iterator, _self, [&](auto &row) {
                 row.round = round;
                 row.timestamp = timestamp;
             });
@@ -274,11 +290,11 @@ private:
         else
         {
             txn.actions.emplace_back(
-                eosio::permission_level(_self, "active"_n),
-                "eosio.token"_n,
-                "transfer"_n,
-                std::make_tuple(_self, to, asset(amount, symbol("EOS", 4)), memo))
-            .send();
+                           eosio::permission_level(_self, "active"_n),
+                           "eosio.token"_n,
+                           "transfer"_n,
+                           std::make_tuple(_self, to, asset(amount, symbol("EOS", 4)), memo))
+                .send();
         }
     }
 
@@ -289,8 +305,7 @@ private:
 
         if (iterator == state_table.end())
         {
-            state_table.emplace(_self, [&](auto & row)
-            {
+            state_table.emplace(_self, [&](auto &row) {
                 row.game = GAME1;
                 row.jackpot = jackpotValue;
             });
@@ -301,23 +316,20 @@ private:
             if (jackpotState == WIN_STATE)
             {
                 uint64_t res = iterator->jackpot;
-                state_table.modify(iterator, _self, [&](auto & row)
-                {
+                state_table.modify(iterator, _self, [&](auto &row) {
                     row.jackpot = jackpotValue;
                 });
                 return res;
             }
             else
             {
-                state_table.modify(iterator, _self, [&](auto & row)
-                {
+                state_table.modify(iterator, _self, [&](auto &row) {
                     row.jackpot += jackpotValue;
                 });
                 return 0;
             }
         }
     }
-
 
     uint64_t random()
     {
@@ -339,8 +351,7 @@ private:
 
 extern "C"
 {
-    [[noreturn]] void apply(uint64_t receiver, uint64_t code, uint64_t action)
-    {
+    [[noreturn]] void apply(uint64_t receiver, uint64_t code, uint64_t action) {
         if ((code == "eosio.token"_n.value) && (action == "transfer"_n.value))
         {
             eosio::execute_action(eosio::name(receiver), eosio::name(code), &eosPunch::transferAction);
