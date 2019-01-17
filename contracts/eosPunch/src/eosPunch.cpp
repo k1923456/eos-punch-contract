@@ -24,7 +24,22 @@ class[[eosio::contract]] eosPunch : public eosio::contract
     const int64_t DRAW_STATE = 0;
     const name GAME1 = "version1"_n;
 
-    [[eosio::action]] void punch(name user, asset bet, std::vector<uint64_t> punches) {
+    [[eosio::action]] void cleartables() {
+        userTable players(_self, _self.value); // code, scope
+        stateTable state_table(_self, _self.value);
+        for (auto itr = players.begin(); itr != players.end();)
+        {
+            itr = players.erase(itr);
+        }
+        for (auto itr = state_table.begin(); itr != state_table.end();)
+        {
+            itr = state_table.erase(itr);
+        }
+    }
+
+        [[eosio::action]] void
+        punch(name user, asset bet, std::vector<uint64_t> punches)
+    {
         int64_t playerValue = 0;
         int64_t playerTotalValue = 0;
         int64_t state = DRAW_STATE;
@@ -192,9 +207,9 @@ class[[eosio::contract]] eosPunch : public eosio::contract
         eosio_assert(_code == "eosio.token"_n, "I reject your non-eosio.token deposit");
         eosio_assert(quantity.amount <= my_balance.amount, "Banker has been brokenF");
 
-        if (to == _self && !memo.empty() && memo.compare(BANKER_MSG) != 0)
+        if (to == _self && memo.size() == 5)
         {
-            int i = 0;
+            uint64_t i = 0;
             uint64_t tmp = 0;
             std::vector<uint64_t> punches;
 
@@ -211,7 +226,7 @@ class[[eosio::contract]] eosPunch : public eosio::contract
                 }
             }
 
-            eosio_assert(punches.size() == MAX_PUNCHES, "Numbers of punches doesn't match!");
+            eosio_assert(punches.size() == MAX_PUNCHES, "Numbers of punches don't match!");
             this->punch(from, quantity / MAX_PUNCHES, punches);
         }
         else
@@ -225,7 +240,7 @@ class[[eosio::contract]] eosPunch : public eosio::contract
   private:
     struct punchRecord
     {
-        uint64_t id;
+        uint64_t sort;
         uint64_t playerPunch;
         uint64_t bankerPunch;
         int64_t state;
@@ -339,11 +354,11 @@ class[[eosio::contract]] eosPunch : public eosio::contract
     uint64_t getInt(char c)
     {
         uint64_t res = (uint64_t)(c - '0');
-        eosio_assert(res > 0, "Your character is too small, man");
-        eosio_assert(res < 4, "Your character is too big, woman");
         print("{c=", c);
         print(",res=", res);
         print("}");
+        eosio_assert(res > 0, "Your integer is too small, man");
+        eosio_assert(res < 4, "Your integer is too big, woman");
 
         return res;
     }
@@ -361,7 +376,7 @@ extern "C"
         {
             switch (action)
             {
-                EOSIO_DISPATCH_HELPER(eosPunch, (punch))
+                EOSIO_DISPATCH_HELPER(eosPunch, (punch)(cleartables))
             }
         }
         eosio_exit(0);
