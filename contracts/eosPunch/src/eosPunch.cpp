@@ -99,7 +99,7 @@ class[[eosio::contract]] eosPunch : public eosio::contract
         uint64_t playerPunch = 0;
         uint64_t bankerPunch = 0;
 
-        bool jackpot = false;
+        bool jackpot = true;
         std::vector<struct punchRecord> round;
 
         for (i = 0; i < punches.size(); i++)
@@ -118,6 +118,7 @@ class[[eosio::contract]] eosPunch : public eosio::contract
                 {
                     playerValue = bet.amount * LOSE;
                     state = LOSE_STATE;
+                    jackpot = false;
                 }
             }
             else
@@ -128,17 +129,18 @@ class[[eosio::contract]] eosPunch : public eosio::contract
                     jackpotValue = (bet.amount - playerValue) / 2;
                     updateJackpot(GAME1, DRAW_STATE, jackpotValue);
                     state = DRAW_STATE;
+                    jackpot = false;
                 }
                 else if (playerPunch > bankerPunch)
                 {
                     playerValue = bet.amount * WIN;
                     state = WIN_STATE;
-                    jackpot = true;
                 }
                 else
                 {
                     playerValue = bet.amount * LOSE;
                     state = LOSE_STATE;
+                    jackpot = false;
                 }
             }
 
